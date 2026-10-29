@@ -3,6 +3,12 @@
 
 #include "tusb.h"
 
+#define HID_REPORT_ID_GPIO  1
+#define HID_REPORT_ID_RTC   2
+#define HID_REPORT_GPIO_SIZE 2
+#define HID_REPORT_RTC_SIZE  9
+#define HID_RTC_SET_NOT_ATTEMPTED 0xff
+
 enum {
     ITF_NUM_CDC = 0,
     ITF_NUM_CDC_DATA,

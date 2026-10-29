@@ -4,19 +4,21 @@
 #define USB_PID 0xbeef
 #define USB_DEVICE_VERSION 0x0100
 
-// HID output report: Report ID 1, then two payload bytes:
-// byte 0 = GPIO number, byte 1 = requested state (0=LOW, 1=HIGH).
 uint8_t const hid_report_descriptor[] = {
     0x06, 0x00, 0xFF,       // Usage Page (Vendor-defined 0xFF00)
     0x09, 0x01,             // Usage (1)
     0xA1, 0x01,             // Collection (Application)
-    0x85, 0x01,             //   Report ID (1)
+    0x85, HID_REPORT_ID_GPIO,//   Report ID (1)
     0x15, 0x00,             //   Logical Minimum (0)
     0x26, 0xFF, 0x00,       //   Logical Maximum (255)
     0x75, 0x08,             //   Report Size (8 bits)
-    0x95, 0x02,             //   Report Count (2 bytes)
+    0x95, HID_REPORT_GPIO_SIZE, // Report Count (2 bytes)
     0x09, 0x02,             //   Usage (2)
     0x91, 0x02,             //   Output (Data, Variable, Absolute)
+    0x85, HID_REPORT_ID_RTC, //   Report ID (2)
+    0x95, HID_REPORT_RTC_SIZE, // Report Count (9 bytes)
+    0x09, 0x03,             //   Usage (3)
+    0xB1, 0x02,             //   Feature (Data, Variable, Absolute)
     0xC0                    // End Collection
 };
 
@@ -66,7 +68,7 @@ char const *string_desc_arr[] = {
     "custom controller",           // 2: Product
     "123456789",                   // 3: Serial number (change per device)
     "UART CDC",                    // 4: CDC interface
-    "GPIO HID"                     // 5: HID interface
+    "GPIO + RTC HID"               // 5: HID interface
 };
 
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {

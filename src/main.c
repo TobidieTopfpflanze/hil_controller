@@ -1,11 +1,13 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
 #include "hardware/uart.h"
 #include "tusb.h"
+#include "rtc_pcf85063.h"
 #include "usb_descriptors.h"
 
 // UART
@@ -58,17 +60,42 @@ static void set_control_gpio(uint8_t pin, uint8_t state) {
     gpio_put(pin, state != 0);
 }
 
+static uint8_t rtc_last_set_status = HID_RTC_SET_NOT_ATTEMPTED;
+
 uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t report_id,
                                hid_report_type_t report_type,
                                uint8_t *buffer,
                                uint16_t reqlen) {
     (void) instance;
-    (void) report_id;
-    (void) report_type;
-    (void) buffer;
-    (void) reqlen;
-    return 0;
+
+    switch (report_id) {
+        case HID_REPORT_ID_RTC: {
+            if (report_type != HID_REPORT_TYPE_FEATURE || buffer == NULL ||
+                reqlen < HID_REPORT_RTC_SIZE) {
+                return 0;
+            }
+
+            rtc_pcf85063_time_t time;
+            rtc_pcf85063_status_t status = rtc_pcf85063_read_time(I2C_PORT, &time);
+            memset(buffer, 0, HID_REPORT_RTC_SIZE);
+            buffer[0] = (uint8_t) status;
+            buffer[1] = rtc_last_set_status;
+            if (status == RTC_PCF85063_OK) {
+                buffer[2] = (uint8_t) (time.year - 2000);
+                buffer[3] = time.month;
+                buffer[4] = time.day;
+                buffer[5] = time.weekday;
+                buffer[6] = time.hour;
+                buffer[7] = time.minute;
+                buffer[8] = time.second;
+            }
+            return HID_REPORT_RTC_SIZE;
+        }
+
+        default:
+            return 0;
+    }
 }
 
 void tud_hid_set_report_cb(uint8_t instance,
@@ -78,12 +105,40 @@ void tud_hid_set_report_cb(uint8_t instance,
                            uint16_t bufsize) {
     (void) instance;
 
-    if (report_type != HID_REPORT_TYPE_OUTPUT || report_id != 1 ||
-        buffer == NULL || bufsize < 2) {
-        return;
-    }
+    switch (report_id) {
+        case HID_REPORT_ID_GPIO:
+            if (report_type == HID_REPORT_TYPE_OUTPUT && buffer != NULL &&
+                bufsize >= HID_REPORT_GPIO_SIZE) {
+                set_control_gpio(buffer[0], buffer[1]);
+            }
+            return;
 
-    set_control_gpio(buffer[0], buffer[1]);
+        case HID_REPORT_ID_RTC: {
+            if (report_type != HID_REPORT_TYPE_FEATURE) {
+                return;
+            }
+
+            if (buffer == NULL || bufsize != HID_REPORT_RTC_SIZE ||
+                buffer[0] != 0 || buffer[1] != 0) {
+                rtc_last_set_status = RTC_PCF85063_ERROR_ARGUMENT;
+                return;
+            }
+            const rtc_pcf85063_time_t time = {
+                .year = 2000 + buffer[2],
+                .month = buffer[3],
+                .day = buffer[4],
+                .weekday = buffer[5],
+                .hour = buffer[6],
+                .minute = buffer[7],
+                .second = buffer[8]
+            };
+            rtc_last_set_status = (uint8_t) rtc_pcf85063_set_time(I2C_PORT, &time);
+            return;
+        }
+
+        default:
+            return;
+    }
 }
 
 static void bridge_usb_to_uart(void) {

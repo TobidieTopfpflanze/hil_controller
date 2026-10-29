@@ -37,6 +37,7 @@ pico_sdk_init()
 
 add_executable(usb_bridge 
     src/main.c
+    src/rtc_pcf85063.c
     src/usb_descriptors.c
 )
 
