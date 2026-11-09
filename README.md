@@ -75,9 +75,61 @@
 
 ### Host usage
 
+List connected controllers (`dead:beef`) and their stored setup details:
+
+```bash
+sudo python3 controller.py --list
+```
+
+```text
+USB: 1-2.3
+ sn=123456789, description="X242 - Full setup"
+```
+
+Select by the serial number stored in setup flash using `--sn`:
+
+```bash
+sudo python3 controller.py --sn 123456789 --read-setup
+sudo python3 controller.py --sn 123456789 --power-en 1
+```
+
 ```bash
 sudo python3 controller.py --read
 sudo python3 controller.py --set now --read
 sudo python3 controller.py --set 2026-10-29T12:00:00Z
 sudo python3 controller.py --gpio 13 1
 ```
+
+## Persistent setup details
+
+```bash
+# Replace both setup fields and print the stored result.
+sudo python3 controller.py --write-setup "X242 - Full setup" "123456789"
+
+```
+
+The description accepts 1–127 UTF-8 bytes, and the serial number accepts 1–31
+UTF-8 bytes (including letters or leading zeroes).
+
+### Setup report layout
+
+
+| Byte    | SET_REPORT                    | GET_REPORT                     |
+| ------- | ----------------------------- | ------------------------------ |
+| 0       | Report ID `3`                 | Report ID `3`                  |
+| 1       | `0`                           | Status of this read            |
+| 2       | `0`                           | Status of the last setup write |
+| 3       | Format version `1`            | Format version `1`             |
+| 4       | `0` (reserved)                | `0`                            |
+| 5–132   | Description (128-byte field)  | Description                    |
+| 133–164 | Serial number (32-byte field) | Serial number                  |
+
+| Status | Meaning                                                 |
+| ------ | ------------------------------------------------------- |
+| `0`    | Success                                                 |
+| `1`    | Setup storage is empty                                  |
+| `2`    | Invalid fields or report payload                        |
+| `3`    | Flash operation or readback verification failed         |
+| `4`    | No valid record: corrupted or unsupported stored format |
+| `255`  | No setup write since firmware boot; only used in byte 2 |
+

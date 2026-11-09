@@ -2,12 +2,16 @@
 #define USB_DESCRIPTORS_H
 
 #include "tusb.h"
+#include "setup_storage.h"
 
 #define HID_REPORT_ID_GPIO  1
 #define HID_REPORT_ID_RTC   2
+#define HID_REPORT_ID_SETUP 3
 #define HID_REPORT_GPIO_SIZE 2
 #define HID_REPORT_RTC_SIZE  9
+#define HID_REPORT_SETUP_SIZE (4 + SETUP_DATA_SIZE)
 #define HID_RTC_SET_NOT_ATTEMPTED 0xff
+#define HID_SETUP_WRITE_NOT_ATTEMPTED 0xff
 
 enum {
     ITF_NUM_CDC = 0,

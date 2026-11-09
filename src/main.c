@@ -8,6 +8,7 @@
 #include "hardware/uart.h"
 #include "tusb.h"
 #include "rtc_pcf85063.h"
+#include "setup_storage.h"
 #include "usb_descriptors.h"
 
 // UART
@@ -61,6 +62,10 @@ static void set_control_gpio(uint8_t pin, uint8_t state) {
 }
 
 static uint8_t rtc_last_set_status = HID_RTC_SET_NOT_ATTEMPTED;
+static uint8_t setup_last_write_status = HID_SETUP_WRITE_NOT_ATTEMPTED;
+
+_Static_assert(HID_REPORT_SETUP_SIZE + 1 <= CFG_TUD_HID_EP_BUFSIZE,
+               "Setup feature report exceeds TinyUSB's control buffer");
 
 uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t report_id,
@@ -91,6 +96,24 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
                 buffer[8] = time.second;
             }
             return HID_REPORT_RTC_SIZE;
+        }
+
+        case HID_REPORT_ID_SETUP: {
+            if (report_type != HID_REPORT_TYPE_FEATURE || buffer == NULL ||
+                reqlen < HID_REPORT_SETUP_SIZE) {
+                return 0;
+            }
+            setup_details_t details;
+            setup_storage_status_t status = setup_storage_read(&details);
+            memset(buffer, 0, HID_REPORT_SETUP_SIZE);
+            buffer[0] = (uint8_t) status;
+            buffer[1] = setup_last_write_status;
+            buffer[2] = SETUP_FORMAT_VERSION;
+            if (status == SETUP_STORAGE_OK) {
+                memcpy(buffer + 4, details.description, SETUP_DESCRIPTION_SIZE);
+                memcpy(buffer + 4 + SETUP_DESCRIPTION_SIZE, details.serial_number, SETUP_SERIAL_SIZE);
+            }
+            return HID_REPORT_SETUP_SIZE;
         }
 
         default:
@@ -133,6 +156,23 @@ void tud_hid_set_report_cb(uint8_t instance,
                 .second = buffer[8]
             };
             rtc_last_set_status = (uint8_t) rtc_pcf85063_set_time(I2C_PORT, &time);
+            return;
+        }
+
+        case HID_REPORT_ID_SETUP: {
+            if (report_type != HID_REPORT_TYPE_FEATURE) {
+                return;
+            }
+            if (buffer == NULL || bufsize != HID_REPORT_SETUP_SIZE ||
+                buffer[0] != 0 || buffer[1] != 0 ||
+                buffer[2] != SETUP_FORMAT_VERSION || buffer[3] != 0) {
+                setup_last_write_status = SETUP_STORAGE_ERROR_ARGUMENT;
+                return;
+            }
+            setup_details_t details;
+            memcpy(details.description, buffer + 4, SETUP_DESCRIPTION_SIZE);
+            memcpy(details.serial_number, buffer + 4 + SETUP_DESCRIPTION_SIZE, SETUP_SERIAL_SIZE);
+            setup_last_write_status = (uint8_t) setup_storage_write(&details);
             return;
         }
 

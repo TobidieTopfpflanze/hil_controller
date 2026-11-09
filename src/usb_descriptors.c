@@ -19,6 +19,10 @@ uint8_t const hid_report_descriptor[] = {
     0x95, HID_REPORT_RTC_SIZE, // Report Count (9 bytes)
     0x09, 0x03,             //   Usage (3)
     0xB1, 0x02,             //   Feature (Data, Variable, Absolute)
+    0x85, HID_REPORT_ID_SETUP, // Report ID (3)
+    0x95, HID_REPORT_SETUP_SIZE, // Report Count (164 bytes)
+    0x09, 0x04,             //   Usage (4)
+    0xB1, 0x02,             //   Feature (Data, Variable, Absolute)
     0xC0                    // End Collection
 };
 
@@ -68,7 +72,7 @@ char const *string_desc_arr[] = {
     "custom controller",           // 2: Product
     "123456789",                   // 3: Serial number (change per device)
     "UART CDC",                    // 4: CDC interface
-    "GPIO + RTC HID"               // 5: HID interface
+    "GPIO + RTC + Setup HID"       // 5: HID interface
 };
 
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {

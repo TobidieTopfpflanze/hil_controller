@@ -1,0 +1,2 @@
+/* Leave the final two sectors outside the linker's firmware FLASH region. */
+FLASH(rx) : ORIGIN = 0x10000000, LENGTH = @SETUP_FLASH_OFFSET@

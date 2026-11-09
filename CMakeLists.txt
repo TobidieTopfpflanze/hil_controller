@@ -38,8 +38,21 @@ pico_sdk_init()
 add_executable(usb_bridge 
     src/main.c
     src/rtc_pcf85063.c
+    src/setup_storage.c
     src/usb_descriptors.c
 )
+
+# Reserve two sectors at the end of the board's configured physical flash.
+math(EXPR SETUP_FLASH_OFFSET "${PICO_FLASH_SIZE_BYTES} - 2 * 4096")
+math(EXPR SETUP_FLASH_ALIGNMENT "${SETUP_FLASH_OFFSET} % 4096")
+if(SETUP_FLASH_OFFSET LESS 4096 OR NOT SETUP_FLASH_ALIGNMENT EQUAL 0)
+    message(FATAL_ERROR "Setup storage requires sector-aligned flash larger than 8 KiB")
+endif()
+configure_file(src/setup_flash_region.ld.in
+    ${CMAKE_CURRENT_BINARY_DIR}/setup_storage/pico_flash_region.ld @ONLY)
+pico_add_linker_script_override_path(usb_bridge
+    ${CMAKE_CURRENT_BINARY_DIR}/setup_storage FILES pico_flash_region.ld)
+target_compile_definitions(usb_bridge PRIVATE SETUP_FLASH_OFFSET=${SETUP_FLASH_OFFSET})
 
 pico_set_program_name(usb_bridge "usb_bridge")
 pico_set_program_version(usb_bridge "0.1")
@@ -63,6 +76,8 @@ target_link_libraries(usb_bridge
     hardware_uart
     hardware_i2c
     hardware_gpio
+    hardware_flash
+    pico_flash
     tinyusb_device
     tinyusb_board
 )
